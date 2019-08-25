@@ -1,0 +1,86 @@
+version: '2.1'
+
+services:
+  db:
+    image: mariadb:10.4.7-bionic
+    command: --transaction-isolation=READ-COMMITTED --binlog-format=ROW --default_authentication_plugin=mysql_native_password
+    restart: always
+    volumes:
+      - ./volumes/db:/var/lib/mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=change_me
+    env_file:
+      - db.env
+    healthcheck:
+        test: ["CMD", "mysqladmin" ,"ping", "-h", "localhost", "-u", "root", "-pchange_me"]
+        timeout: 20s
+        retries: 10
+
+  redis:
+    image: redis:5.0.5-alpine
+    restart: always
+
+  app:
+    image: nextcloud:16.0.4-fpm-alpine
+    restart: always
+    volumes:
+      - ./volumes/nextcloud:/var/www/html
+      - ./volumes/data:/data
+      - ./permission-data.sh:/permission-data.sh
+    environment:
+      - MYSQL_HOST=db
+      - REDIS_HOST=redis
+      - NEXTCLOUD_DATA_DIR=/data
+    env_file:
+      - db.env
+    depends_on:
+        db:
+          condition: service_healthy
+    entrypoint: /permission-data.sh
+
+  web:
+    build: ./web
+    restart: always
+    volumes:
+      - ./volumes/nextcloud:/var/www/html:ro
+    depends_on:
+      - app
+    networks:
+      - default
+      - traefik
+    labels:
+      - "traefik.enable=true"
+      - "traefik.backend=web"
+      - "traefik.frontend.rule=Host:change_me"
+      - "traefik.docker.network=traefik"
+      - "traefik.port=80"
+
+  cron:
+    image: nextcloud:16.0.4-fpm-alpine
+    restart: always
+    volumes:
+      - ./volumes/nextcloud:/var/www/html
+    entrypoint: /cron.sh
+    depends_on:
+      - db
+      - app
+      - redis
+
+  traefik:
+    image: traefik:1.7.14-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./traefik/config/traefik.toml:/traefik.toml
+      - ./traefik/config/acme.json:/acme.json
+    networks:
+      - traefik
+    depends_on:
+      - web
+    restart: always
+
+networks:
+  traefik:
+    external: true
