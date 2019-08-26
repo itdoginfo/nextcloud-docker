@@ -10,7 +10,7 @@ Based on an [official example](https://github.com/nextcloud/docker/tree/master/.
 Replace all __change_me__ with your values
 
 ### db.env
-- MYSQL_PASSWORD - Password user nextcloud, which will have access to the database
+- MYSQL_PASSWORD - nextcloud DB user password
 
 ### docker-compose.yml
 - MYSQL_ROOT_PASSWORD - root password for MariaDB container
@@ -45,9 +45,9 @@ docker-compose up -d
 ## Storage for data
 By default, your data is stored in ./volumes/data
 
-For example, you have a disk for your data and it is mounted /mnt/storage
+For example, you have a disk for your data and it is mounted to /mnt/storage
 
-Change 
+Replace with
 ```
       - ./volumes/data:/data
 ```
